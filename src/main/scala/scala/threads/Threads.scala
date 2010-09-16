@@ -33,7 +33,7 @@ for(t<- 0 until 10){ if(t%2==0)println("test,errs",t,tsterr);if(ttest)tsterr+=1}
   if(tsterr>0)println("***Errors***",tsterr) 
   def ttest= {
      val S=10000000 
-	 val Thrds=2
+	 val Thrds=6
 	 val ThrdSize=S/Thrds
 	 val Threads=new Array[MyThread](Thrds)
 	 val a=new Array[Int](S)
@@ -63,7 +63,7 @@ for(t<- 0 until 10){ if(t%2==0)println("test,errs",t,tsterr);if(ttest)tsterr+=1}
 	// Check for and report errors detected in array values
 	var err=false
 	for(i<- 0 until S){
-	  if(a(i)!=i){err=true;println(i,a(i))}
+	  //if(a(i)!=i){err=true;println(i,a(i))}
 	  }
 	  
      //if(err){ println("Error")  // report on error
@@ -112,17 +112,17 @@ def getWork={
  // Artificial work load 
  def workLoad()={
    // if(wa(tx)!=0)println("rng err")
-   wa(tx)=tx	// set values in an array.
+   //wa(tx)=tx	// set values in an array.
    tx+=1
    // dummy work load
 
    // Change the work as a function of the Index (tx) to simulate imbalanced work.
-	val wkPerIndex =if(tx<100)1000000 else 0 // heavily skew to first 400
+	//val wkPerIndex =if(tx<100)1000000 else 0 // heavily skew to first 400
  	//val wkPerIndex =if(tx>totalWork-100)1000000 else 10 // heavily skew to last 400
- 	//val wkPerIndex =10 // small uniform
+ 	val wkPerIndex =10 // small uniform
     var c=0
     var i=0
-    if (false) {
+    if (true) {
       while(i<wkPerIndex*3){c+=1;i+=1}  // This works fine and gives expected results 
     } else {
 	// Curiously, the following alternative causes memory contention with multiple threads

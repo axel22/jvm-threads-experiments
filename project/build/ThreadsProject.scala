@@ -24,21 +24,28 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
   
   // definitions
   
+  var password = ""
+  
   def mtcquadjava = "../jdk1.6.0_16/bin/java"
   
   def vm(jvm: String, settings: String, cp: String, mainclass: String) = jvm + " " + settings + " -cp " + cp + " " + mainclass
   
   def javavm(settings: String, cp: String, mainclass: String) = vm("java", settings, cp, mainclass)
   
-  def ssh(user: String, remoteurl: String, command: String) = "ssh " + user + "@" + remoteurl + " " + command
+  def ssh(user: String, remoteurl: String, command: String) = 
+    "ssh " + user + "@" + remoteurl + " " + command
   
-  def scp(user: String, remoteurl: String, directory: String) = "scp -r " + directory + " " + user + "@" + remoteurl + ":" + projName + "/"
+  def scp(user: String, remoteurl: String, src: String, dest: String) = 
+    "scp -r " + src + " " + user + "@" + remoteurl + ":" + projName + "/" + dest
   
-  def deploy(user: String, remoteurl: String, sbtcommand: String) = List(
-    ssh(user, remoteurl, "rm -r -f " + projName),
-    scp(user, remoteurl, "."),
-    ssh(user, remoteurl, "cd " + projName + "; ~/bin/sbt " + sbtcommand)
-  )
+  def serversbt(user: String, remoteurl: String, sbtcommand: String) = ssh(user, remoteurl, "cd " + projName + "; ~/bin/sbt " + sbtcommand)
+  
+  def deploy(user: String, remoteurl: String, dirnames: Seq[(String, String)], sbtcommand: String) = {
+    val init = ssh(user, remoteurl, "rm -r -f " + projName + "; mkdir " + projName)
+    val copies = dirnames.map(p => scp(user, remoteurl, p._1, p._2))
+    val sbtc = serversbt(user, remoteurl, sbtcommand)
+    List(init) ++ copies ++ List(sbtc)
+  }
   
   def runcommand(command: String) = {
     println("Running: " + command)
@@ -50,31 +57,56 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
   }
   
   // tasks
+  lazy val setPassword = task {
+    args => if (args.length != 1) {
+      task { Some("Usage: set-password <server-password>") }
+    } else {
+      task {
+        password = args(0)
+        None
+      }
+    }
+  }
   
-  lazy val servervm = task {
+  lazy val runClientvm = task {
+    runcommand(javavm("-Xms256m -Xmx512m -client", classpath, "scala.threads.app"))
+    None
+  } dependsOn { `package` }
+  
+  lazy val runServervm = task {
     runcommand(javavm("-Xms256m -Xmx512m -server", classpath, "scala.threads.app"))
     None
   } dependsOn { `package` }
   
-  lazy val servervmMtcQuad = task {
+  lazy val runServervmMtcQuad = task {
     runcommand(vm(mtcquadjava, "-Xms256m -Xmx512m -server", classpath, "scala.threads.app"))
     None
   } dependsOn { `package` }
   
-  lazy val servervmParGc = task {
+  lazy val runServervmParGc = task {
     runcommand(javavm("-Xms256m -Xmx512m -server -XX:+UseParallelGC", classpath, "scala.threads.app"))
     None
   } dependsOn { `package` }
   
-  lazy val servervmParNewGc = task {
+  lazy val runServervmParNewGc = task {
     runcommand(javavm("-Xms256m -Xmx512m -server -XX:+UseParNewGC", classpath, "scala.threads.app"))
     None
   } dependsOn { `package` }
   
-  lazy val deployMtcQuad = task {
-    runcommands(deploy("prokopec", "mtcquad.epfl.ch", "servervm-mtc-quad"))
+  lazy val deploySrcMtcQuad = task {
+    runcommands(deploy("prokopec", "mtcquad.epfl.ch", List(("project", "project"), ("src", "src")), "run-servervm-mtc-quad"))
     None
   } dependsOn { `package` }
+  
+  lazy val deployMtcQuad = task {
+    runcommands(deploy("prokopec", "mtcquad.epfl.ch", List((".",  "")), "run-servervm-mtc-quad"))
+    None
+  } dependsOn { `package` }
+  
+  lazy val runMtcQuad = task {
+    runcommand(serversbt("prokopec", "mtcquad.epfl.ch", "run-servervm-mtc-quad"))
+    None
+  }
 }
 
 
