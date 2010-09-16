@@ -29,7 +29,7 @@ This allows load balancing to a granularity of 1 in the index range.
 
 object app extends Application {
   var tsterr=0
-for(t<- 0 until 100000){ if(t%2==0)println("test,errs",t,tsterr);if(ttest)tsterr+=1}
+for(t<- 0 until 10){ if(t%2==0)println("test,errs",t,tsterr);if(ttest)tsterr+=1}
   if(tsterr>0)println("***Errors***",tsterr) 
   def ttest= {
      val S=10000000 
@@ -117,17 +117,18 @@ def getWork={
    // dummy work load
 
    // Change the work as a function of the Index (tx) to simulate imbalanced work.
-	val wkPerIndex =if(tx<100)1000000 else 1000 // heavily skew to first 400
+	val wkPerIndex =if(tx<100)1000000 else 0 // heavily skew to first 400
  	//val wkPerIndex =if(tx>totalWork-100)1000000 else 10 // heavily skew to last 400
  	//val wkPerIndex =10 // small uniform
     var c=0
-    var i=0	
-    while(i<wkPerIndex*3){c+=1;i+=1}  // This works fine and gives expected results 
-	
+    var i=0
+    if (false) {
+      while(i<wkPerIndex*3){c+=1;i+=1}  // This works fine and gives expected results 
+    } else {
 	// Curiously, the following alternative causes memory contention with multiple threads
     // that results in a significant slow down so that 2 threads are almost the same speed as one! 
-    // for(i<- 0 until wkPerIndex)c+=1  	
-	
+    for(i<- 0 until wkPerIndex)c+=1  	
+    }
 	c // force compiler not to optimise out un-used results and code
 	}
 
