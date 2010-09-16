@@ -3,3 +3,6 @@ project/boot
 
 # target dir contents
 target
+
+# garbage
+*.*~
