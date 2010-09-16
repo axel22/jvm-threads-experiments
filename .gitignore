@@ -1,0 +1,5 @@
+# project dependencies
+project/boot
+
+# target dir contents
+target
