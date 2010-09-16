@@ -116,7 +116,7 @@ def getWork={
    // dummy work load
 
    // Change the work as a function of the Index (tx) to simulate imbalanced work.
-	val wkPerIndex =if(tx<100)1000000 else 1 // heavily skew to first 400
+	val wkPerIndex =if(tx<100)1000000 else 1000 // heavily skew to first 400
  	//val wkPerIndex =if(tx>totalWork-100)1000000 else 10 // heavily skew to last 400
  	//val wkPerIndex =10 // small uniform
     var c=0
