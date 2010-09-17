@@ -29,11 +29,11 @@ This allows load balancing to a granularity of 1 in the index range.
 
 object app extends Application {
   var tsterr=0
-for(t<- 0 until 10){ if(t%2==0)println("test,errs",t,tsterr);if(ttest)tsterr+=1}
+for(t<- 0 until 16){ if(t%2==0)println("test,errs",t,tsterr);if(ttest)tsterr+=1}
   if(tsterr>0)println("***Errors***",tsterr) 
   def ttest= {
      val S=10000000 
-	 val Thrds=6
+	 val Thrds=8
 	 val ThrdSize=S/Thrds
 	 val Threads=new Array[MyThread](Thrds)
 	 val a=new Array[Int](S)
@@ -43,9 +43,12 @@ for(t<- 0 until 10){ if(t%2==0)println("test,errs",t,tsterr);if(ttest)tsterr+=1}
 	   
 	   val nt= new MyThread() {
           override def run() {
+            val thrstart = System.nanoTime
 		    tn=i
 			totalWork=S
 		    doWork(strt,end)
+            val thrend = System.nanoTime
+            totalTime = (thrend - thrstart)
           }
         }
 	   Threads(i)=nt
@@ -57,6 +60,7 @@ for(t<- 0 until 10){ if(t%2==0)println("test,errs",t,tsterr);if(ttest)tsterr+=1}
     Threads.foreach(t=>t.start())
 	Threads.foreach(t=>t.join())
     val xtm=System.nanoTime()-ixst
+    for (t <- Threads) println("Thread " + t.tn + " time: " + (t.totalTime) / 1.0e6)
     println("time",xtm.toFloat/1000000000)
 	
 	// Report Statistics
@@ -79,8 +83,16 @@ for(t<- 0 until 10){ if(t%2==0)println("test,errs",t,tsterr);if(ttest)tsterr+=1}
 }
 }
 
+
+class NormalInteger {
+  private var i = 0
+  def get = i
+  def set(n: Int) = i = n
+  def compareAndSet(oldval: Int, newval: Int) = {i = newval; true}
+}
+
 class MyThread extends Thread{
-val Blk=100 // defines size of work blocks (amortises the atomics in getwork but increases granularity) 
+val Blk=1000 // defines size of work blocks (amortises the atomics in getwork but increases granularity) 
 var wa:Array[Int]=null
 var threads:Array[MyThread]=null
 val work=new AtomicInteger(0)
@@ -94,6 +106,7 @@ var tn=0	// Thread number
 var retries=0 // Retry count
 var steals=List[(Int,Int,Int)]() // Records steals
 var shares=List[(Int,Int,Int)]() // Records shares
+var totalTime = 0L
 var totalWork=0
  
 def getWork={
@@ -147,15 +160,15 @@ def getWork={
 				while (k<w){
 				// Check to see if work sharing requested
 				
-				  if(shareWork){
-				    if(work.get==0){
-				      val dw=(w-k)
-					  work.set(dw)
-					  w-=dw
-					  shares=(tn,dw,w-k)::shares  // for debugging only
-					  }
-					shareWork=false
-				  }
+				  // if(shareWork){
+				  //   if(work.get==0){
+				  //     val dw=(w-k)
+				  //         work.set(dw)
+				  //         w-=dw
+				  //         shares=(tn,dw,w-k)::shares  // for debugging only
+				  //         }
+				  //       shareWork=false TODO
+				  // }
 								  
                   workLoad()  // The work, a dummy in this case
 				  k+=1
@@ -166,7 +179,7 @@ def getWork={
 				shareWork=false
 				
 				// Finished work so go look for more
-				val (strt,end)=findWork
+				val (strt,end)= findWork
 				// Set up new work
 				tx=strt			// set index (could also be the point to setup a new iterator)
 				max.set(end)    // set max index value       

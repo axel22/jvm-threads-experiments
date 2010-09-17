@@ -9,6 +9,8 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
   
   val ps = java.io.File.pathSeparator
   val projName = "threads"
+  val projDefinitionPath = "project/build"
+  val projDefinitionFile = projDefinitionPath + "/ThreadsProject.scala"
   val scalaVersion = "2.8.0"
   val projVersion = "1.0"
   val bootDir = "project" / "boot"
@@ -22,9 +24,12 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
     artifactPath
   ).mkString(ps)
   
-  // definitions
+  // server settings
   
-  var password = ""
+  val mtcquad = "mtcquad.epfl.ch"
+  var currentUser = "prokopec"
+  
+  // definitions
   
   def mtcquadjava = "../jdk1.6.0_16/bin/java"
   
@@ -35,17 +40,26 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
   def ssh(user: String, remoteurl: String, command: String) = 
     "ssh " + user + "@" + remoteurl + " " + command
   
-  def scp(user: String, remoteurl: String, src: String, dest: String) = 
-    "scp -r " + src + " " + user + "@" + remoteurl + ":" + projName + "/" + dest
+  def scp(user: String, remoteurl: String, src: String, dest: String, mods: String) = 
+    "scp " + mods + " " + src + " " + user + "@" + remoteurl + ":" + projName + "/" + dest
   
   def serversbt(user: String, remoteurl: String, sbtcommand: String) = ssh(user, remoteurl, "cd " + projName + "; ~/bin/sbt " + sbtcommand)
   
-  def deploy(user: String, remoteurl: String, dirnames: Seq[(String, String)], sbtcommand: String) = {
-    val init = ssh(user, remoteurl, "rm -r -f " + projName + "; mkdir " + projName)
-    val copies = dirnames.map(p => scp(user, remoteurl, p._1, p._2))
+  def deploy(user: String, remoteurl: String, filenames: Seq[(String, String, String)], sbtcommand: String) = {
+    val init = ssh(user, remoteurl, "mkdir " + projName)
+    val copies = filenames flatMap {
+      p => List(
+        ssh(user, remoteurl, "mkdir " + projName + "/" + p._2),
+        scp(user, remoteurl, p._1, p._2, p._3)
+      )
+    }
     val sbtc = serversbt(user, remoteurl, sbtcommand)
     List(init) ++ copies ++ List(sbtc)
   }
+  
+  def deldir(dirname: String) = "rm -r -f " + dirname
+  
+  def clear(user: String, remoteurl: String) = ssh(user, remoteurl, deldir(projName))
   
   def runcommand(command: String) = {
     println("Running: " + command)
@@ -57,14 +71,13 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
   }
   
   // tasks
-  lazy val setPassword = task {
-    args => if (args.length != 1) {
-      task { Some("Usage: set-password <server-password>") }
-    } else {
-      task {
-        password = args(0)
-        None
-      }
+  
+  lazy val setUser = task {
+    args => if (args.length != 1) task {
+      Some("Please specify user. Example: set-user <username>")
+    } else task {
+      currentUser = args(0)
+      None
     }
   }
   
@@ -94,17 +107,30 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
   } dependsOn { `package` }
   
   lazy val deploySrcMtcQuad = task {
-    runcommands(deploy("prokopec", "mtcquad.epfl.ch", List(("project", "project"), ("src", "src")), "run-servervm-mtc-quad"))
+    runcommand(ssh(currentUser, mtcquad, deldir(projName + "/" + artifactPath)))
+    runcommands(
+      deploy(currentUser, mtcquad,
+             List(("project/build.properties", "project", ""),
+                  (projDefinitionFile, projDefinitionPath, ""),
+                  ("src", "src", "-r")), 
+             "run-servervm-mtc-quad")
+    )
     None
-  } dependsOn { `package` }
+  }
+  
+  lazy val clearMtcQuad = task {
+    runcommand(clear(currentUser, mtcquad))
+    None
+  }
   
   lazy val deployMtcQuad = task {
-    runcommands(deploy("prokopec", "mtcquad.epfl.ch", List((".",  "")), "run-servervm-mtc-quad"))
+    runcommand(clear(currentUser, mtcquad))
+    runcommands(deploy(currentUser, mtcquad, List((".",  "", "-r -p")), "run-servervm-mtc-quad"))
     None
   } dependsOn { `package` }
   
   lazy val runMtcQuad = task {
-    runcommand(serversbt("prokopec", "mtcquad.epfl.ch", "run-servervm-mtc-quad"))
+    runcommand(serversbt(currentUser, mtcquad, "run-servervm-mtc-quad"))
     None
   }
 }
