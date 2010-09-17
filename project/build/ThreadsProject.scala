@@ -107,7 +107,7 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
   } dependsOn { `package` }
   
   lazy val deploySrcMtcQuad = task {
-    runcommand(ssh(currentUser, mtcquad, deldir(projName + "/" + artifactPath)))
+    runcommand(ssh(currentUser, mtcquad, deldir(projName + "/target")))
     runcommands(
       deploy(currentUser, mtcquad,
              List(("project/build.properties", "project", ""),
