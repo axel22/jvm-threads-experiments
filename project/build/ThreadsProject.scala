@@ -24,18 +24,62 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
     artifactPath
   ).mkString(ps)
   
+  // settings
+  
+  trait Settings {
+    def java: String
+  }
+  
+  object defaultSettings extends Settings {
+    def java = "java"
+  }
+  
+  var testName = "scala.threads.app"
+  
   // server settings
   
-  val mtcquad = "mtcquad.epfl.ch"
+  trait Server extends Settings {
+    val url: String
+    def desc: cpu
+    def name: String
+  }
+  
+  case class cpu(manuf: String, model: String, cpus: Int, cores: Int, clock: Double) {
+    private def cores2str = cores match {
+      case 1 => "uniprocessor"
+      case 2 => "dual-core"
+      case 4 => "quad-core"
+      case n => n + "-core"
+    }
+    override def toString = manuf + " " + model + " " + cpus + "x " + cores2str + " @ " + clock + " GHz"
+  }
+  
+  object mtcquad extends Server {
+    def name = "mtcquad"
+    def desc = cpu("AMD", "8220", 4, 2, 2.8)
+    val url = "mtcquad.epfl.ch"
+    def java = "../jdk1.6.0_16/bin/java"
+  }
+  
+  object i7_2x4 extends Server {
+    def name = "i7_2x4"
+    def desc = cpu("Intel", "i7", 2, 4, 2.67)
+    val url = "lamppc18.epfl.ch"
+    def java = "../jdk1.6.0_16/bin/java"
+  }
+  
+  val servers = Map(
+    mtcquad.name -> mtcquad,
+    i7_2x4.name -> i7_2x4
+  )
+
   var currentUser = "prokopec"
   
   // definitions
   
-  def mtcquadjava = "../jdk1.6.0_16/bin/java"
+  def vm(settings: Settings, jvmsettings: String, cp: String, mainclass: String) = settings.java + " " + jvmsettings + " -cp " + cp + " " + mainclass
   
-  def vm(jvm: String, settings: String, cp: String, mainclass: String) = jvm + " " + settings + " -cp " + cp + " " + mainclass
-  
-  def javavm(settings: String, cp: String, mainclass: String) = vm("java", settings, cp, mainclass)
+  def javavm(settings: String, cp: String, mainclass: String) = vm(defaultSettings, settings, cp, mainclass)
   
   def ssh(user: String, remoteurl: String, command: String) = 
     "ssh " + user + "@" + remoteurl + " " + command
@@ -43,9 +87,10 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
   def scp(user: String, remoteurl: String, src: String, dest: String, mods: String) = 
     "scp " + mods + " " + src + " " + user + "@" + remoteurl + ":" + projName + "/" + dest
   
-  def serversbt(user: String, remoteurl: String, sbtcommand: String) = ssh(user, remoteurl, "cd " + projName + "; ~/bin/sbt " + sbtcommand)
+  def serversbt(user: String, remoteurl: String, sbtcommand: String, sbtargs: String*) =
+    ssh(user, remoteurl, "cd " + projName + "; ~/bin/sbt '" + sbtcommand + (sbtargs.foldLeft("")(_ + " " + _)) + "'")
   
-  def deploy(user: String, remoteurl: String, filenames: Seq[(String, String, String)], sbtcommand: String) = {
+  def deploy(user: String, remoteurl: String, filenames: Seq[(String, String, String)], sbtcommand: String, sbtargs: String*) = {
     val init = ssh(user, remoteurl, "mkdir " + projName)
     val copies = filenames flatMap {
       p => List(
@@ -53,11 +98,11 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
         scp(user, remoteurl, p._1, p._2, p._3)
       )
     }
-    val sbtc = serversbt(user, remoteurl, sbtcommand)
+    val sbtc = serversbt(user, remoteurl, sbtcommand, (sbtargs: _*))
     List(init) ++ copies ++ List(sbtc)
   }
   
-  def deldir(dirname: String) = "rm -r -f " + dirname
+  def deldir(dirname: String) = "rm -rf " + dirname
   
   def clear(user: String, remoteurl: String) = ssh(user, remoteurl, deldir(projName))
   
@@ -81,57 +126,108 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
     }
   }
   
+  lazy val setTest = task {
+    args => if (args.length != 1) task {
+      Some("Please specify which test (full class name). Example: set-test <testname>")
+    } else task {
+      testName = args(0)
+      None
+    }
+  }
+  
+  lazy val listServers = task {
+    println("Server list:")
+    for ((nm, sett) <- servers) println(nm + " - " + sett.desc + "; url: " + sett.url)
+    None
+  }
+  
+  lazy val getUser = task {
+    println("Current user: " + currentUser)
+    None
+  }
+  
+  lazy val getTest = task {
+    println("Test set to: " + testName)
+    None
+  }
+  
   lazy val runClientvm = task {
-    runcommand(javavm("-Xms256m -Xmx512m -client", classpath, "scala.threads.app"))
+    runcommand(javavm("-Xms256m -Xmx512m -client", classpath, testName))
     None
   } dependsOn { `package` }
   
   lazy val runServervm = task {
-    runcommand(javavm("-Xms256m -Xmx512m -server", classpath, "scala.threads.app"))
-    None
-  } dependsOn { `package` }
-  
-  lazy val runServervmMtcQuad = task {
-    runcommand(vm(mtcquadjava, "-Xms256m -Xmx512m -server", classpath, "scala.threads.app"))
+    runcommand(javavm("-Xms256m -Xmx512m -server", classpath, testName))
     None
   } dependsOn { `package` }
   
   lazy val runServervmParGc = task {
-    runcommand(javavm("-Xms256m -Xmx512m -server -XX:+UseParallelGC", classpath, "scala.threads.app"))
+    runcommand(javavm("-Xms256m -Xmx512m -server -XX:+UseParallelGC", classpath, testName))
     None
   } dependsOn { `package` }
   
   lazy val runServervmParNewGc = task {
-    runcommand(javavm("-Xms256m -Xmx512m -server -XX:+UseParNewGC", classpath, "scala.threads.app"))
+    runcommand(javavm("-Xms256m -Xmx512m -server -XX:+UseParNewGC", classpath, testName))
     None
   } dependsOn { `package` }
   
-  lazy val deploySrcMtcQuad = task {
-    runcommand(ssh(currentUser, mtcquad, deldir(projName + "/target")))
-    runcommands(
-      deploy(currentUser, mtcquad,
-             List(("project/build.properties", "project", ""),
-                  (projDefinitionFile, projDefinitionPath, ""),
-                  ("src", "src", "-r")), 
-             "run-servervm-mtc-quad")
-    )
-    None
+  lazy val runServervmAt = task {
+    args => if (args.length == 2) task {
+      val settings = servers(args(0))
+      val testnm = args(1)
+      runcommand(vm(settings, "-Xms256m -Xmx512m -server", classpath, testnm))
+      None
+    } dependsOn { `package` } else task {
+      Some("Please specify which server and test. Example: run-servervm-at <server-name> <testname>")
+    }
   }
   
-  lazy val clearMtcQuad = task {
-    runcommand(clear(currentUser, mtcquad))
-    None
+  lazy val deploySrc = task {
+    args => if (args.length == 1) task {
+      val server = servers(args(0))
+      runcommand(ssh(currentUser, server.url, deldir(projName + "/target")))
+      runcommands(
+        deploy(currentUser, server.url,
+               List(("project/build.properties", "project", ""),
+                    (projDefinitionFile, projDefinitionPath, ""),
+                    ("src", "/", "-r")),
+               "run-servervm-at", server.name, testName)
+      )
+      None
+    } dependsOn { `package` } else task {
+      Some("Please specify server. Example: deploy-src <server-name>")
+    }
   }
   
-  lazy val deployMtcQuad = task {
-    runcommand(clear(currentUser, mtcquad))
-    runcommands(deploy(currentUser, mtcquad, List((".",  "", "-r -p")), "run-servervm-mtc-quad"))
-    None
-  } dependsOn { `package` }
+  lazy val clearServer = task {
+    args => if (args.length == 1) task {
+      val server = servers(args(0))
+      runcommand(clear(currentUser, server.url))
+      None
+    } else task {
+      Some("Please specify server to clear. Example: clear-server <server-name>")
+    }
+  }
   
-  lazy val runMtcQuad = task {
-    runcommand(serversbt(currentUser, mtcquad, "run-servervm-mtc-quad"))
-    None
+  lazy val deployAt = task {
+    args => if (args.length == 1) task {
+      val sv = servers(args(0))
+      runcommand(clear(currentUser, sv.url))
+      runcommands(deploy(currentUser, sv.url, List((".",  "", "-r -p")), "run-servervm-at", sv.name, testName))
+      None
+    } dependsOn { `package` } else task {
+      Some("Please specify server to deploy at. Example: deploy-at <server-name>")
+    }
+  }
+  
+  lazy val runAt = task {
+    args => if (args.length == 1) task {
+      val sv = servers(args(0))
+      runcommand(serversbt(currentUser, sv.url, "run-servervm-at", sv.name, testName))
+      None
+    } else task {
+      Some("Please specify server to run previously deployed. Example: run-at <server-name>")
+    }
   }
 }
 
