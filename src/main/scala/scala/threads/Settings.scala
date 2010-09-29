@@ -40,7 +40,7 @@ trait Settings {
 trait DefaultSettings extends Settings {
   def totalwork = 1000000000
   def threadnum = 1
-  def numtests = 25
+  def numtests = 1
   
   def testname = {
     //"none"

@@ -37,6 +37,7 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
   
   var testName = "scala.threads.ThreadTests"
   var email = "aleksandar.prokopec@gmail.com"
+  val tmpfile = "tmp_sbt_2w3e4567cs"
   
   // server settings
   
@@ -96,9 +97,12 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
   
   def rm(filename: String) = "rm " + filename
   
-  def sendmail(address: String, subject: String, additionaltxt: String, logfile: String) =
-    "echo '" + additionaltxt + "' || " +
-    "cat " + logfile + " | sendmail -s " + subject + " " + address
+  def runsendmail(address: String, subject: String, additionaltxt: String, logfile: String) = {
+    val command = "cat " + logfile + " | sendmail " + /*"-s \"" + subject + " - " + additionaltxt + "\" "*/ " " + address
+    println("Running: " + command)
+    List("sh", "-c", command) !;
+    // "cat " + logfile + " | sendmail -s '" + subject + " - " + additionaltxt + "' " + "" + address
+  }
   
   def deploy(user: String, remoteurl: String, filenames: Seq[(String, String, String)], sbtcommand: String, sbtargs: String*) = {
     val init = ssh(user, remoteurl, "mkdir " + projName)
@@ -126,7 +130,7 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
   }
   
   def sendreport(address: String, server: Server, logfile: String, testnm: String) = if (email.trim != "") {
-    runcommand(sendmail(address, "Test reports for server: " + server.name, "Specs: " + server.desc + "\nTest: " + testnm, logfile))
+    runsendmail(address, "Test reports for server: " + server.name, "Specs: " + server.desc + "\\\nTest: " + testnm, logfile)
   }
   
   def runtestbatch(server: Server, testnm: String, address: String) = {
@@ -224,7 +228,7 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
   }
   
   lazy val runBatchServervmAt = task {
-    args => if (args.length != 2 && args.length != 3) task {
+    args => if (args.length == 2 || args.length == 3) task {
       val settings = servers(args(0))
       val testnm = args(1)
       val address = if (args.length == 3) args(2) else email
@@ -232,6 +236,7 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
       None
     } dependsOn { `package` } else task {
       Some("Please specify which server, which test to run exhaustively, and the optional e-mail address for the report (omit for default).\n" +
+           "Provided only: " + args.mkString(", ") + "\n" +
            "  Example: run-batch-servervm-at <server-name> <testname> [<email-address>]")
     }
   }
