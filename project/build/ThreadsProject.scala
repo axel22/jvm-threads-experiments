@@ -125,16 +125,17 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
     for (c <- commands) runcommand(c)
   }
   
-  def sendreport(server: Server, logfile: String, testnm: String) = if (email.trim != "") {
-    runcommand(sendmail(email, "Test reports for server: " + server.name, "Specs: " + server.desc + "\nTest: " + testnm, logfile))
+  def sendreport(address: String, server: Server, logfile: String, testnm: String) = if (email.trim != "") {
+    runcommand(sendmail(address, "Test reports for server: " + server.name, "Specs: " + server.desc + "\nTest: " + testnm, logfile))
   }
   
-  def runtestbatch(server: Server, testnm: String) = {
+  def runtestbatch(server: Server, testnm: String, address: String) = {
     val info = Tests(testnm)
     runcommand(rm(info.logfile))
     for (args <- info) {
       runcommand(vm(server, "-Xms256m -Xmx512m -server", classpath, testnm, args))
     }
+    sendreport(address, server, info.logfile, testnm)
   }
   
   def fs(s: String, len: Int) =
@@ -223,13 +224,15 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
   }
   
   lazy val runBatchServervmAt = task {
-    args => if (args.length == 2) task {
+    args => if (args.length != 2 && args.length != 3) task {
       val settings = servers(args(0))
       val testnm = args(1)
-      runtestbatch(settings, testnm)
+      val address = if (args.length == 3) args(2) else email
+      runtestbatch(settings, testnm, address)
       None
     } dependsOn { `package` } else task {
-      Some("Please specify which server and test to run exhaustively. Example: run-batch-servervm-at <server-name> <testname>")
+      Some("Please specify which server, which test to run exhaustively, and the optional e-mail address for the report (omit for default).\n" +
+           "  Example: run-batch-servervm-at <server-name> <testname> [<email-address>]")
     }
   }
   
@@ -242,7 +245,7 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
                List(("project/build.properties", "project", ""),
                     (projDefinitionFile, projDefinitionPath, ""),
                     ("src", "/", "-r")),
-               sbtaftercommand, (List(server.name) ++ sbtargs): _*)
+               sbtaftercommand, (List(server.name) ++ sbtargs ++ List(email)): _*)
       )
       None
     } dependsOn { `package` } else task {
@@ -254,7 +257,7 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
     args => if (args.length == 1) task {
       val sv = servers(args(0))
       runcommand(clear(currentUser, sv.url))
-      runcommands(deploy(currentUser, sv.url, List((".",  "", "-r -p")), sbtaftercommand, (List(sv.name) ++ sbtargs): _*))
+      runcommands(deploy(currentUser, sv.url, List((".",  "", "-r -p")), sbtaftercommand, (List(sv.name) ++ sbtargs ++ List(email)): _*))
       None
     } dependsOn { `package` } else task {
       Some("Please specify server to deploy at. Example: deploy-at <server-name>")
