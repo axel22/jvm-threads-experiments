@@ -5,6 +5,7 @@ import Process._
 
 
 
+
 class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
   
   val ps = java.io.File.pathSeparator
@@ -34,7 +35,7 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
     def java = "java"
   }
   
-  var testName = "scala.threads.app"
+  var testName = "scala.threads.ThreadTests"
   
   // server settings
   
@@ -56,16 +57,17 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
   
   object mtcquad extends Server {
     def name = "mtcquad"
-    def desc = cpu("AMD", "8220", 4, 2, 2.8)
+    def desc = cpu("AMD", "8220", 4, 2, 2.80)
     val url = "mtcquad.epfl.ch"
     def java = "../jdk1.6.0_16/bin/java"
   }
   
   object i7_2x4 extends Server {
-    def name = "i7_2x4"
+    def name = "i7-2x4"
     def desc = cpu("Intel", "i7", 2, 4, 2.67)
     val url = "lamppc18.epfl.ch"
-    def java = "../jdk1.6.0_16/bin/java"
+    def java = "../jdk-6u21/java/bin/java"
+    // def java = "../jdk1.6.0_16/bin/java"
   }
   
   val servers = Map(
@@ -77,7 +79,8 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
   
   // definitions
   
-  def vm(settings: Settings, jvmsettings: String, cp: String, mainclass: String) = settings.java + " " + jvmsettings + " -cp " + cp + " " + mainclass
+  def vm(settings: Settings, jvmsettings: String, cp: String, mainclass: String, args: String*) =
+    settings.java + " " + jvmsettings + " -cp " + cp + " " + mainclass + " " + args.foldLeft("")(_ + " " + _)
   
   def javavm(settings: String, cp: String, mainclass: String) = vm(defaultSettings, settings, cp, mainclass)
   
@@ -115,6 +118,18 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
     for (c <- commands) runcommand(c)
   }
   
+  def runtestbatch(settings: Settings, testnm: String) = {
+    val info = Tests(testnm)
+    println(info)
+    for (args <- info) {
+      runcommand(vm(settings, "-Xms256m -Xmx512m -server", classpath, testnm, args))
+    }
+  }
+  
+  def fs(s: String, len: Int) =
+    if (s.length < len) s + (new runtime.RichString(" ") * (len - s.length))
+    else s
+  
   // tasks
   
   lazy val setUser = task {
@@ -137,7 +152,7 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
   
   lazy val listServers = task {
     println("Server list:")
-    for ((nm, sett) <- servers) println(nm + " - " + sett.desc + "; url: " + sett.url)
+    for ((nm, sett) <- servers) println(fs(nm, 12) + " : " + sett.desc + "; url: " + sett.url)
     None
   }
   
@@ -182,7 +197,18 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
     }
   }
   
-  lazy val deploySrc = task {
+  lazy val runBatchServervmAt = task {
+    args => if (args.length == 2) task {
+      val settings = servers(args(0))
+      val testnm = args(1)
+      runtestbatch(settings, testnm)
+      None
+    } dependsOn { `package` } else task {
+      Some("Please specify which server and test to run exhaustively. Example: run-batch-servervm-at <server-name> <testname>")
+    }
+  }
+  
+  private def deploySrcTask(sbtaftercommand: String, sbtargs: String*) = task {
     args => if (args.length == 1) task {
       val server = servers(args(0))
       runcommand(ssh(currentUser, server.url, deldir(projName + "/target")))
@@ -191,13 +217,26 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
                List(("project/build.properties", "project", ""),
                     (projDefinitionFile, projDefinitionPath, ""),
                     ("src", "/", "-r")),
-               "run-servervm-at", server.name, testName)
+               sbtaftercommand, (List(server.name) ++ sbtargs): _*)
       )
       None
     } dependsOn { `package` } else task {
       Some("Please specify server. Example: deploy-src <server-name>")
     }
   }
+  
+  private def deployAtTask(sbtaftercommand: String, sbtargs: String*) = task {
+    args => if (args.length == 1) task {
+      val sv = servers(args(0))
+      runcommand(clear(currentUser, sv.url))
+      runcommands(deploy(currentUser, sv.url, List((".",  "", "-r -p")), sbtaftercommand, (List(sv.name) ++ sbtargs): _*))
+      None
+    } dependsOn { `package` } else task {
+      Some("Please specify server to deploy at. Example: deploy-at <server-name>")
+    }
+  }
+  
+  lazy val deploySrcRun = deploySrcTask("run-servervm-at", testName)
   
   lazy val clearServer = task {
     args => if (args.length == 1) task {
@@ -209,16 +248,11 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
     }
   }
   
-  lazy val deployAt = task {
-    args => if (args.length == 1) task {
-      val sv = servers(args(0))
-      runcommand(clear(currentUser, sv.url))
-      runcommands(deploy(currentUser, sv.url, List((".",  "", "-r -p")), "run-servervm-at", sv.name, testName))
-      None
-    } dependsOn { `package` } else task {
-      Some("Please specify server to deploy at. Example: deploy-at <server-name>")
-    }
-  }
+  lazy val deployRun = deployAtTask("run-servervm-at", testName)
+  
+  lazy val deployRunBatch = deployAtTask("run-batch-servervm-at", testName)
+  
+  lazy val deploySrcRunBatch = deployAtTask("run-batch-servervm-at", testName)
   
   lazy val runAt = task {
     args => if (args.length == 1) task {

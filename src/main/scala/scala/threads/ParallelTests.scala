@@ -8,50 +8,46 @@ import collection._
 
 
 
-object Settings {
-  val totalwork = 1000000000
-  val threadnum = 8
-  val numtests = 20
+
+
+object ThreadTests extends ParallelTests {
+  def main(args: Array[String]) = runTest(args)
 }
 
 
-object Times {
-  var totalTime: Long = _
-  val runTimes = mutable.ArrayBuffer[Long]()
-  
-  def measure[R](block: =>R) = {
-    val start = System.nanoTime
-    block
-    val end = System.nanoTime
-    end - start
+trait ParallelTests extends Test {
+self =>
+  var runargs: Array[String] = _
+  lazy val settings: Settings = {
+    new ParsedSettings(runargs)
   }
+  lazy val times: Times = new Times(settings)
+  import times._
+  import settings._
   
-  def print = {
-    println("Run times: " + runTimes.foldLeft("")(_ + " " + _ / 1000.0))
-    println("Total time: " + (totalTime / 1000.0))
-  }
-}
-
-
-object ParallelTest extends Application {
-  import Settings._
-  import Times._
-  
-  override def main(args: Array[String]) {
-    println("Starting.")
+  protected def testBody(args: Array[String]) {
+    // initialize settings
+    runargs = args
+    settings
+    times
+    
+    println("Started.")
     
     totalTime = measure {
       for (i <- 0 until numtests) test
     }
     
     println("Done.")
-    Times.print
+    printAllTimes
   }
   
   def test {
     val threads = for (i <- 0 until threadnum) yield new WorkerThread {
       override def run {
-        loopWork
+        startTimes(i) += timeStamp
+        threadTimes(i) += measure {
+          val result = call(testname)
+        }
       }
     }
     
@@ -61,30 +57,67 @@ object ParallelTest extends Application {
     }
   }
   
-}
-
-
-class WorkerThread extends Thread {
-  import Settings._
-  
-  var flag: Boolean = false
-  @volatile var vflag: Boolean = false
-  
-  def loopWork {
-    var i = 0
-    val until = totalwork / threadnum
-    while (i < until) {
-      flag = !flag
-      i += 1
+  class WorkerThread extends Thread {
+    var cnt: Int = 0
+    @volatile var vcnt: Int = 0
+    
+    def call(name: String) = name match {
+      case "none" => // do nothing
+      case "loop_heap_nocomm" => loop_heap_nocomm
+      case "loop_local_nocomm" => loop_local_nocomm
+      case "loop_vread" => loop_vread
+      case "loop_vwrite" => loop_vwrite
+      case "loop_atomic_read" =>
+      case "loop_atomic_write" =>
+      case "loop_atomic_cas" =>
+      case _ => error("unknown test '" + name + "'")
     }
+    
+    def loop_local_nocomm = {
+      var localcnt: Int = 0
+      var i = 0
+      var j = 0
+      val until = totalwork / threadnum
+      while (i < until) {
+        if (localcnt >= 0) localcnt += 1
+        i += 1
+      }
+      localcnt
+    }
+    
+    def loop_heap_nocomm = {
+      var i = 0
+      val until = totalwork / threadnum
+      while (i < until) {
+        if (cnt >= 0) cnt += 1
+        i += 1
+      }
+      cnt
+    }
+    
+    def loop_vread = {
+      var i = 0
+      val until = totalwork / threadnum
+      while (i < until) {
+        if (vcnt < 0) i = until
+        i += 1
+      }
+      vcnt + i
+    }
+    
+    def loop_vwrite = {
+      var i = 0
+      val until = totalwork / threadnum
+      while (i < until) {
+        vcnt = i + cnt
+        i += 1
+      }
+      vcnt + i
+    }
+    
   }
   
 }
-
-
-
-
-
 
 
 
