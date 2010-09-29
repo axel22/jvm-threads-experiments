@@ -98,7 +98,7 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
   def rm(filename: String) = "rm " + filename
   
   def runsendmail(address: String, subject: String, additionaltxt: String, logfile: String) = {
-    val command = "cat " + logfile + " | sendmail " + /*"-s \"" + subject + " - " + additionaltxt + "\" "*/ " " + address
+    val command = "(echo ''; echo '" + additionaltxt + "'; echo ''; cat " + logfile + ") | sendmail " + /*"-s \"" + subject + "\" "*/ " " + address
     println("Running: " + command)
     List("sh", "-c", command) !;
     // "cat " + logfile + " | sendmail -s '" + subject + " - " + additionaltxt + "' " + "" + address
@@ -130,7 +130,7 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
   }
   
   def sendreport(address: String, server: Server, logfile: String, testnm: String) = if (email.trim != "") {
-    runsendmail(address, "Test reports for server: " + server.name, "Specs: " + server.desc + "\\\nTest: " + testnm, logfile)
+    runsendmail(address, "Test reports for server: " + server.name, "Specs: " + server.desc + "\nTest: " + testnm, logfile)
   }
   
   def runtestbatch(server: Server, testnm: String, address: String) = {
