@@ -36,6 +36,7 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
   }
   
   var testName = "scala.threads.ThreadTests"
+  var email = "aleksandar.prokopec@gmail.com"
   
   // server settings
   
@@ -93,6 +94,12 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
   def serversbt(user: String, remoteurl: String, sbtcommand: String, sbtargs: String*) =
     ssh(user, remoteurl, "cd " + projName + "; ~/bin/sbt '" + sbtcommand + (sbtargs.foldLeft("")(_ + " " + _)) + "'")
   
+  def rm(filename: String) = "rm " + filename
+  
+  def sendmail(address: String, subject: String, additionaltxt: String, logfile: String) =
+    "echo '" + additionaltxt + "' || " +
+    "cat " + logfile + " | sendmail -s " + subject + " " + address
+  
   def deploy(user: String, remoteurl: String, filenames: Seq[(String, String, String)], sbtcommand: String, sbtargs: String*) = {
     val init = ssh(user, remoteurl, "mkdir " + projName)
     val copies = filenames flatMap {
@@ -118,11 +125,15 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
     for (c <- commands) runcommand(c)
   }
   
-  def runtestbatch(settings: Settings, testnm: String) = {
+  def sendreport(server: Server, logfile: String, testnm: String) = if (email.trim != "") {
+    runcommand(sendmail(email, "Test reports for server: " + server.name, "Specs: " + server.desc + "\nTest: " + testnm, logfile))
+  }
+  
+  def runtestbatch(server: Server, testnm: String) = {
     val info = Tests(testnm)
-    println(info)
+    runcommand(rm(info.logfile))
     for (args <- info) {
-      runcommand(vm(settings, "-Xms256m -Xmx512m -server", classpath, testnm, args))
+      runcommand(vm(server, "-Xms256m -Xmx512m -server", classpath, testnm, args))
     }
   }
   
@@ -131,6 +142,15 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
     else s
   
   // tasks
+  
+  lazy val setEmail = task {
+    args => if (args.length != 1) task {
+      Some("Please specify email for sending reports. Example: set-email <email-adress>")
+    } else task {
+      email = args(0)
+      None
+    }
+  }
   
   lazy val setUser = task {
     args => if (args.length != 1) task {
@@ -153,6 +173,11 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
   lazy val listServers = task {
     println("Server list:")
     for ((nm, sett) <- servers) println(fs(nm, 12) + " : " + sett.desc + "; url: " + sett.url)
+    None
+  }
+  
+  lazy val getEmail = task {
+    println("Current reports email: " + email)
     None
   }
   
@@ -252,7 +277,7 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
   
   lazy val deployRunBatch = deployAtTask("run-batch-servervm-at", testName)
   
-  lazy val deploySrcRunBatch = deployAtTask("run-batch-servervm-at", testName)
+  lazy val deploySrcRunBatch = deploySrcTask("run-batch-servervm-at", testName)
   
   lazy val runAt = task {
     args => if (args.length == 1) task {

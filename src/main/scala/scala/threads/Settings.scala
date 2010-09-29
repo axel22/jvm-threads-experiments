@@ -70,7 +70,7 @@ class ParsedSettings(allargs: Array[String]) extends DefaultSettings {
     val map = mutable.Map[String, Any]()
     for (arg <- allargs map {_ split "="}) arg(0) match {
       case "totalwork" | "threadnum" | "numtests" if arg.length == 2 => map += arg(0) -> arg(1).toInt
-      case "testname" | "email" if arg.length == 2 => map += arg(0) -> arg(1)
+      case "testname" | "email" | "logfile" if arg.length == 2 => map += arg(0) -> arg(1)
       case "logging" if arg.length == 2 => map += arg(0) -> arg(1).toBoolean
       case _ => error("unknown parameter '" + arg(0) + "', found in argument list: " + allargs.mkString(","))
     }
@@ -80,6 +80,7 @@ class ParsedSettings(allargs: Array[String]) extends DefaultSettings {
   override def totalwork = (argmap.get("totalwork") getOrElse super.totalwork).asInstanceOf[Int]
   override def threadnum = (argmap.get("threadnum") getOrElse super.threadnum).asInstanceOf[Int]
   override def logging = (argmap.get("logging") getOrElse super.logging).asInstanceOf[Boolean]
+  override def logfile = (argmap.get("logfile") getOrElse super.logfile).asInstanceOf[String]
   override def numtests = (argmap.get("numtests") getOrElse super.numtests).asInstanceOf[Int]
   override def testname = (argmap.get("testname") getOrElse super.testname).asInstanceOf[String]
   
