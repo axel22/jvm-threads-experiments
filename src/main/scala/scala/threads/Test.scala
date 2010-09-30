@@ -39,23 +39,14 @@ trait Test {
 }
 
 
-    // val props = new Properties
-    // props.put("mail.smtp.host", "benchmark-report-server")
-    // props.put("mail.from", "reports@benchmark.report")
 
-    // Session session = Session.getInstance(props, null);
 
-    // try {
-    //   val mimemsg = new MimeMessage(session)
-    //   msg.setFrom()
-    //   msg.setRecipients(Message.RecipientType.TO, settings.email)
-    //   msg.setSubject("Benchmark reports ")
-    //   msg.setSentDate(new Date());
-    //   msg.setText("Hello, world!\n");
-    //   Transport.send(msg);
-    // } catch (MessagingException mex) {
-    //   System.out.println("send failed, exception: " + mex);
-    // }    
+
+
+
+
+
+
 
 
 

@@ -40,14 +40,14 @@ trait Settings {
 trait DefaultSettings extends Settings {
   def totalwork = 1000000000
   def threadnum = 1
-  def numtests = 1
+  def numtests = 10
   
   def testname = {
-    //"none"
+    "none"
     //"loop_local_nocomm"
     //"loop_heap_nocomm"
     //"loop_vread"
-    "loop_vwrite"
+    //"loop_vwrite"
     //"loop_atomic_read"
     //"loop_atomic_write"
     //"loop_atomic_cas"
@@ -55,7 +55,7 @@ trait DefaultSettings extends Settings {
   
   def div = 1.0e6
   def wdt = 12
-  def lastshown = 10
+  def lastshown = 8
   
   def logging = false
   def logfile = "testlog.txt"

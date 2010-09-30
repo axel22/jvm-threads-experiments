@@ -10,8 +10,9 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
   
   val ps = java.io.File.pathSeparator
   val projName = "threads"
-  val projDefinitionPath = "project/build"
-  val projDefinitionFile = projDefinitionPath + "/ThreadsProject.scala"
+  val projDefinitionPath = "project/"
+  val projDefinitionBuildPath = projDefinitionPath + "build/"
+  val projDefinitionFiles = projDefinitionBuildPath
   val scalaVersion = "2.8.0"
   val projVersion = "1.0"
   val bootDir = "project" / "boot"
@@ -84,7 +85,7 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
   def vm(settings: Settings, jvmsettings: String, cp: String, mainclass: String, args: String*) =
     settings.java + " " + jvmsettings + " -cp " + cp + " " + mainclass + " " + args.foldLeft("")(_ + " " + _)
   
-  def javavm(settings: String, cp: String, mainclass: String) = vm(defaultSettings, settings, cp, mainclass)
+  def javavm(settings: String, cp: String, mainclass: String, args: String*) = vm(defaultSettings, settings, cp, mainclass, args: _*)
   
   def ssh(user: String, remoteurl: String, command: String) = 
     "ssh " + user + "@" + remoteurl + " " + command
@@ -98,10 +99,9 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
   def rm(filename: String) = "rm " + filename
   
   def runsendmail(address: String, subject: String, additionaltxt: String, logfile: String) = {
-    val command = "(echo ''; echo '" + additionaltxt + "'; echo ''; cat " + logfile + ") | sendmail " + /*"-s \"" + subject + "\" "*/ " " + address
-    println("Running: " + command)
+    val command = "(echo 'Subject: " + subject + "'; echo ''; echo '" + additionaltxt + "'; echo ''; cat " + logfile + ") | sendmail " + address
+    loginfo("Running: " + command)
     List("sh", "-c", command) !;
-    // "cat " + logfile + " | sendmail -s '" + subject + " - " + additionaltxt + "' " + "" + address
   }
   
   def deploy(user: String, remoteurl: String, filenames: Seq[(String, String, String)], sbtcommand: String, sbtargs: String*) = {
@@ -121,7 +121,7 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
   def clear(user: String, remoteurl: String) = ssh(user, remoteurl, deldir(projName))
   
   def runcommand(command: String) = {
-    println("Running: " + command)
+    loginfo("Running: " + command)
     command !
   }
   
@@ -133,11 +133,15 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
     runsendmail(address, "Test reports for server: " + server.name, "Specs: " + server.desc + "\nTest: " + testnm, logfile)
   }
   
+  def loginfo(msg: String) = log.log(Level.Info, msg)
+  
   def runtestbatch(server: Server, testnm: String, address: String) = {
     val info = Tests(testnm)
     runcommand(rm(info.logfile))
     for (args <- info) {
+      loginfo("Starting test at: " + server.name)
       runcommand(vm(server, "-Xms256m -Xmx512m -server", classpath, testnm, args))
+      loginfo("Finished test at: " + server.name)
     }
     sendreport(address, server, info.logfile, testnm)
   }
@@ -176,35 +180,32 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
   }
   
   lazy val listServers = task {
-    println("Server list:")
+    loginfo("Server list:")
     for ((nm, sett) <- servers) println(fs(nm, 12) + " : " + sett.desc + "; url: " + sett.url)
     None
   }
   
   lazy val getEmail = task {
-    println("Current reports email: " + email)
+    loginfo("Email for reports is set to: " + email)
     None
   }
   
   lazy val getUser = task {
-    println("Current user: " + currentUser)
+    loginfo("Server user is set to: " + currentUser)
     None
   }
   
   lazy val getTest = task {
-    println("Test set to: " + testName)
+    loginfo("Test is set to: " + testName)
     None
   }
   
-  lazy val runClientvm = task {
-    runcommand(javavm("-Xms256m -Xmx512m -client", classpath, testName))
-    None
-  } dependsOn { `package` }
-  
   lazy val runServervm = task {
-    runcommand(javavm("-Xms256m -Xmx512m -server", classpath, testName))
-    None
-  } dependsOn { `package` }
+    args => task {
+      runcommand(javavm("-Xms256m -Xmx512m -server", classpath, testName, args: _*))
+      None
+    } dependsOn { `package` }
+  }
   
   lazy val runServervmParGc = task {
     runcommand(javavm("-Xms256m -Xmx512m -server -XX:+UseParallelGC", classpath, testName))
@@ -241,16 +242,22 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
     }
   }
   
-  private def deploySrcTask(sbtaftercommand: String, sbtargs: String*) = task {
+  private def deploySrcTask(sbtaftercommand: String, reporting: Boolean, sbtargs: String*) = task {
     args => if (args.length == 1) task {
       val server = servers(args(0))
       runcommand(ssh(currentUser, server.url, deldir(projName + "/target")))
       runcommands(
-        deploy(currentUser, server.url,
-               List(("project/build.properties", "project", ""),
-                    (projDefinitionFile, projDefinitionPath, ""),
-                    ("src", "/", "-r")),
-               sbtaftercommand, (List(server.name) ++ sbtargs ++ List(email)): _*)
+        deploy(
+          currentUser, 
+          server.url,
+          List(
+            ("project/build.properties", "project", ""),
+            (projDefinitionFiles, projDefinitionPath, "-r"),
+            ("src", "/", "-r")
+          ),
+          sbtaftercommand, 
+          (List(server.name) ++ sbtargs ++ (if (reporting) List(email) else Nil)): _*
+        )
       )
       None
     } dependsOn { `package` } else task {
@@ -258,18 +265,24 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
     }
   }
   
-  private def deployAtTask(sbtaftercommand: String, sbtargs: String*) = task {
+  private def deployAtTask(sbtaftercommand: String, reporting: Boolean, sbtargs: String*) = task {
     args => if (args.length == 1) task {
       val sv = servers(args(0))
       runcommand(clear(currentUser, sv.url))
-      runcommands(deploy(currentUser, sv.url, List((".",  "", "-r -p")), sbtaftercommand, (List(sv.name) ++ sbtargs ++ List(email)): _*))
+      runcommands(
+        deploy(
+          currentUser, sv.url, List((".",  "", "-r -p")), 
+          sbtaftercommand, 
+          (List(sv.name) ++ sbtargs ++ (if (reporting) List(email) else Nil)): _*
+        )
+      )
       None
     } dependsOn { `package` } else task {
       Some("Please specify server to deploy at. Example: deploy-at <server-name>")
     }
   }
   
-  lazy val deploySrcRun = deploySrcTask("run-servervm-at", testName)
+  lazy val deploySrcRun = deploySrcTask("run-servervm-at", false, testName)
   
   lazy val clearServer = task {
     args => if (args.length == 1) task {
@@ -281,11 +294,29 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
     }
   }
   
-  lazy val deployRun = deployAtTask("run-servervm-at", testName)
+  lazy val deployRun = deployAtTask("run-servervm-at", false, testName)
   
-  lazy val deployRunBatch = deployAtTask("run-batch-servervm-at", testName)
+  lazy val deployBatch = deployAtTask("run-batch-servervm-at", true, testName)
   
-  lazy val deploySrcRunBatch = deploySrcTask("run-batch-servervm-at", testName)
+  lazy val deploySrcBatch = deploySrcTask("run-batch-servervm-at", true, testName)
+  
+  lazy val deploySrcBatchAllServers = task {
+    val deployTasks = for ((nm, srv) <- servers) yield {
+      deploySrcTask("run-batch-servervm-at", true, testName)(Array(nm))
+    }
+    loginfo("Resolving dependencies for the deployment task.")
+    for (t <- deployTasks) t.runDependenciesOnly
+    val threads = for (t <- deployTasks) yield new Thread {
+      override def run {
+        t.run
+      }
+    }
+    loginfo("Starting to send batches.")
+    threads foreach { _ start }
+    threads foreach { _ join }
+    loginfo("All batches sent and completed.")
+    None
+  }
   
   lazy val runAt = task {
     args => if (args.length == 1) task {

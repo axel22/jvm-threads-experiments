@@ -25,7 +25,16 @@ object Tests {
   object ThreadTests extends TestInfo {
     def classname = "scala.threads.ThreadTests"
     def arguments = Seq(
-      Seq("loop_local_nocomm", "loop_heap_nocomm", "loop_vread", "loop_vwrite") map { "testname=" + _ },
+      Seq(
+        // "loop_local_write",
+        "loop_heap_read", 
+        // "loop_heap_write",
+        "loop_vread", 
+        // "loop_vwrite",
+        // "loop_atomic_read", 
+        // "loop_atomic_write",
+        // "loop_atomic_cas",
+      ) map { "testname=" + _ },
       Seq(1, 2, 4, 6, 8) map { "threadnum=" + _ },
       Seq("logging=true")
     ) ++ defaults
