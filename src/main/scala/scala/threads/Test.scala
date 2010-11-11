@@ -6,17 +6,18 @@ package scala.threads
 
 
 trait Test {
-  def settings: Settings
-  def times: Times
-  protected def testBody(args: Array[String])
+  def settings(args: Array[String]): Settings
+  protected def testBody(s: Settings): Times
   
   def runTest(args: Array[String]) = {
-    testBody(args)
+    val s = settings(args)
     
-    if (settings.logging) logReport
+    val t = testBody(s)
+    
+    if (s.logging) logReport(s, t)
   }
   
-  private def logReport {
+  private def logReport(settings: Settings, times: Times) {
     // open log file
     val out = new java.io.FileOutputStream(settings.logfile, true)
     

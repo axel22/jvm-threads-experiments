@@ -17,32 +17,30 @@ object ThreadTests extends ParallelTests {
 
 trait ParallelTests extends Test {
 self =>
-  var runargs: Array[String] = _
-  lazy val settings: Settings = {
-    new ParsedSettings(runargs)
-  }
-  lazy val times: Times = new Times(settings)
-  import times._
-  import settings._
+  def settings(args: Array[String]) = new ParsedSettings(args)
   
-  protected def testBody(args: Array[String]) {
+  protected def testBody(settings: Settings) = {
     // initialize settings
-    runargs = args
-    settings
-    times
+    val times = new Times(settings)
+    import settings._
+    import times._
     
     println("Started.")
     
     totalTime = measure {
-      for (i <- 0 until numtests) test
+      for (i <- 0 until numtests) test(times, settings)
     }
     
     println("Done.")
     printAllTimes
+    
+    times
   }
   
-  def test {
-    val threads = for (i <- 0 until threadnum) yield new WorkerThread {
+  def test(times: Times, settings: Settings) {
+    import times._
+    import settings._
+    val threads = for (i <- 0 until threadnum) yield new WorkerThread(times, settings) {
       override def run {
         startTimes(i) += timeStamp
         threadTimes(i) += measure {
@@ -57,7 +55,10 @@ self =>
     }
   }
   
-  class WorkerThread extends Thread {
+  class WorkerThread(times: Times, settings: Settings) extends Thread {
+    import times._
+    import settings._
+    
     var cnt: Int = 0
     @volatile var vcnt: Int = 0
     val atomic_cnt = new java.util.concurrent.atomic.AtomicInteger(0)

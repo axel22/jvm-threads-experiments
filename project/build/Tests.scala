@@ -36,6 +36,7 @@ object Tests {
         // "loop_atomic_cas",
       ) map { "testname=" + _ },
       Seq(1, 2, 4, 6, 8) map { "threadnum=" + _ },
+      Seq("totalwork=1000000000"),
       Seq("logging=true")
     ) ++ defaults
   }

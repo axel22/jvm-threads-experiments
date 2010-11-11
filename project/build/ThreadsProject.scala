@@ -242,21 +242,23 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
     }
   }
   
-  private def deploySrcTask(sbtaftercommand: String, reporting: Boolean, sbtargs: String*) = task {
+  private def ifarg(ok: Boolean, str: String) = if (ok) List(str) else Nil
+  
+  private def deploySrcTask(sbtaftercommand: String, prepserver: Boolean, preptnm: Boolean, sbtargs: String*) = task {
     args => if (args.length == 1) task {
-      val server = servers(args(0))
-      runcommand(ssh(currentUser, server.url, deldir(projName + "/target")))
+      val srv = servers(args(0))
+      runcommand(ssh(currentUser, srv.url, deldir(projName + "/target")))
       runcommands(
         deploy(
           currentUser, 
-          server.url,
+          srv.url,
           List(
             ("project/build.properties", "project", ""),
             (projDefinitionFiles, projDefinitionPath, "-r"),
             ("src", "/", "-r")
           ),
-          sbtaftercommand, 
-          (List(server.name) ++ sbtargs ++ (if (reporting) List(email) else Nil)): _*
+          sbtaftercommand,
+          (ifarg(prepserver, srv.name) ++ ifarg(preptnm, testName) ++ sbtargs): _*
         )
       )
       None
@@ -265,15 +267,17 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
     }
   }
   
-  private def deployAtTask(sbtaftercommand: String, reporting: Boolean, sbtargs: String*) = task {
+  private def deployAtTask(sbtaftercommand: String, prepserver: Boolean, preptnm: Boolean, sbtargs: String*) = task {
     args => if (args.length == 1) task {
-      val sv = servers(args(0))
-      runcommand(clear(currentUser, sv.url))
+      val srv = servers(args(0))
+      runcommand(clear(currentUser, srv.url))
       runcommands(
         deploy(
-          currentUser, sv.url, List((".",  "", "-r -p")), 
+          currentUser, 
+          srv.url, 
+          List((".",  "", "-r -p")), 
           sbtaftercommand, 
-          (List(sv.name) ++ sbtargs ++ (if (reporting) List(email) else Nil)): _*
+          (ifarg(prepserver, srv.name) ++ ifarg(preptnm, testName) ++ sbtargs): _*
         )
       )
       None
@@ -282,7 +286,7 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
     }
   }
   
-  lazy val deploySrcRun = deploySrcTask("run-servervm-at", false, testName)
+  lazy val deploySrcRun = deploySrcTask("run-servervm-at", true, true, "")
   
   lazy val clearServer = task {
     args => if (args.length == 1) task {
@@ -294,15 +298,15 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
     }
   }
   
-  lazy val deployRun = deployAtTask("run-servervm-at", false, testName)
+  lazy val deployRun = deployAtTask("run-servervm-at", true, true, "")
   
-  lazy val deployBatch = deployAtTask("run-batch-servervm-at", true, testName)
+  lazy val deployBatch = deployAtTask("run-batch-servervm-at", true, true, email)
   
-  lazy val deploySrcBatch = deploySrcTask("run-batch-servervm-at", true, testName)
+  lazy val deploySrcBatch = deploySrcTask("run-batch-servervm-at", true, true, email)
   
   lazy val deploySrcBatchAllServers = task {
     val deployTasks = for ((nm, srv) <- servers) yield {
-      deploySrcTask("run-batch-servervm-at", true, testName)(Array(nm))
+      deploySrcTask("run-batch-servervm-at", true, true, email)(Array(nm))
     }
     loginfo("Resolving dependencies for the deployment task.")
     for (t <- deployTasks) t.runDependenciesOnly

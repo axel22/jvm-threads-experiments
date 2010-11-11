@@ -13,8 +13,8 @@ import collection._
 
 
 
-class Times(val settings: Settings) {
-  import settings._
+class Times(s: Settings) {
+  import s._
   
   var totalTime: Long = _
   val runTimes = mutable.ArrayBuffer[Long]()
