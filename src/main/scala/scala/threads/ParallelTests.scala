@@ -10,13 +10,11 @@ import collection._
 
 
 
-object ThreadTests extends ParallelTests {
-  def main(args: Array[String]) = runTest(args)
-}
-
-
-trait ParallelTests extends Test {
-self =>
+object ParallelTests extends Test {
+  def main(args: Array[String]) {
+    runTest(args)
+  }
+  
   def settings(args: Array[String]) = new ParsedSettings(args)
   
   protected def testBody(settings: Settings) = {

@@ -23,7 +23,7 @@ object Tests {
   }
   
   object ThreadTests extends TestInfo {
-    def classname = "scala.threads.ThreadTests"
+    def classname = "scala.threads.ParallelTests"
     def arguments = Seq(
       Seq(
         // "loop_local_write",

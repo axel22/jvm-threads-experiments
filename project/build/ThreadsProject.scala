@@ -36,7 +36,7 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
     def java = "java"
   }
   
-  var testName = "scala.threads.ThreadTests"
+  var testName = "scala.threads.ParallelTests"
   var email = "aleksandar.prokopec@gmail.com"
   val tmpfile = "tmp_sbt_2w3e4567cs"
   
