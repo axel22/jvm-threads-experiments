@@ -71,7 +71,8 @@ object ParallelTests extends Test {
     import settings._
     import java.util.concurrent.atomic.AtomicInteger
     
-    var cnt: Int = 0
+    var cnt: String = ""
+    var glob: Int = 0
     @volatile var vcnt: Int = 0
     val atomic_cnt = new AtomicInteger(0)
     val atomic_tlocal_cnt = new java.lang.ThreadLocal[java.util.concurrent.atomic.AtomicInteger] {
@@ -117,7 +118,7 @@ object ParallelTests extends Test {
       var i = 0
       val until = totalwork / threadnum
       while (i < until) {
-        if (cnt >= 0) cnt += 1
+        if (cnt ne "") cnt = "!"
         i += 1
       }
       cnt
@@ -127,10 +128,10 @@ object ParallelTests extends Test {
       var i = 0
       val until = totalwork / threadnum
       while (i < until) {
-        if (cnt < 0) println("counter negative")
+        if (cnt ne "") println("not empty")
         i += 1
       }
-      cnt + i
+      cnt
     }
     
     def loop_vread = {
@@ -147,7 +148,7 @@ object ParallelTests extends Test {
       var i = 0
       val until = totalwork / threadnum
       while (i < until) {
-        vcnt = i + cnt
+        vcnt = i + glob
         i += 1
       }
       vcnt + i
@@ -169,7 +170,7 @@ object ParallelTests extends Test {
       val until = totalwork / threadnum
       val acnt = atomic_cnt
       while (i < until) {
-        acnt.set(i + cnt)
+        acnt.set(i + glob)
         i += 1
       }
       acnt.get + i
