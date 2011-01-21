@@ -62,15 +62,16 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
     def name = "mtcquad"
     def desc = cpu("AMD", "8220", 4, 2, 2.80)
     val url = "mtcquad.epfl.ch"
-    def java = "../jdk1.6.0_16/bin/java"
+    def java = "../javas/jdk1.6.0_16/bin/java"
+    // def java = "../javas/jdk1.7.0/bin/java"
   }
   
   object i7_2x4 extends Server {
     def name = "i7-2x4"
     def desc = cpu("Intel", "i7", 2, 4, 2.67)
     val url = "lamppc18.epfl.ch"
-    def java = "../jdk-6u21/java/bin/java"
-    // def java = "../jdk1.6.0_16/bin/java"
+    def java = "../javas/jdk-6u21/java/bin/java"
+    // def java = "../javas/jdk1.6.0_16/bin/java"
   }
   
   val servers = Map(
@@ -218,13 +219,13 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
   } dependsOn { `package` }
   
   lazy val runServervmAt = task {
-    args => if (args.length == 2) task {
+    args => if (args.length >= 2) task {
       val settings = servers(args(0))
       val testnm = args(1)
-      runcommand(vm(settings, "-Xms256m -Xmx512m -server", classpath, testnm))
+      runcommand(vm(settings, "-Xms256m -Xmx512m -server", classpath, testnm, args.drop(2): _*))
       None
     } dependsOn { `package` } else task {
-      Some("Please specify which server and test. Example: run-servervm-at <server-name> <testname>")
+      Some("Please specify which server and test. Example: run-servervm-at <server-name> <testname> [<params>]")
     }
   }
   
@@ -245,12 +246,12 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
   private def ifarg(ok: Boolean, str: String) = if (ok) List(str) else Nil
   
   private def deploySrcTask(sbtaftercommand: String, prepserver: Boolean, preptnm: Boolean, sbtargs: String*) = task {
-    args => if (args.length == 1) task {
+    args => if (args.length >= 1) task {
       val srv = servers(args(0))
       runcommand(ssh(currentUser, srv.url, deldir(projName + "/target")))
       runcommands(
         deploy(
-          currentUser, 
+          currentUser,
           srv.url,
           List(
             ("project/build.properties", "project", ""),

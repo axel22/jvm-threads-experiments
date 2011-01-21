@@ -22,27 +22,43 @@ object Tests {
     }
   }
   
-  object ThreadTests extends TestInfo {
+  object ParallelTests extends TestInfo {
     def classname = "scala.threads.ParallelTests"
     def arguments = Seq(
       Seq(
         // "loop_local_write",
         "loop_heap_read", 
         // "loop_heap_write",
-        "loop_vread", 
+        // "loop_vread", 
         // "loop_vwrite",
         // "loop_atomic_read", 
         // "loop_atomic_write",
         // "loop_atomic_cas",
+        // "loop_atomic_tlocal_cas",
+        // "loop_atomic_weakcas",
+        // "loop_atomic_tlocal_weakcas",
+        // "conchashmap_insert",
+        // "concskiplist_insert",
+        // "linear_insert",
+        // "currthread",
+        "threadlocal"
       ) map { "testname=" + _ },
-      Seq(1, 2, 4, 6, 8) map { "threadnum=" + _ },
-      Seq("totalwork=1000000000"),
+      Seq(1, 2, 4, 8) map { "threadnum=" + _ },
+      Seq("totalwork=20000000"),
+      Seq("numtests=200"),
       Seq("logging=true")
     ) ++ defaults
   }
   
-  val map: Map[String, TestInfo] = mutable.Map() ++ (List(ThreadTests) map { t => (t.classname, t) })
+  object CTries extends TestInfo {
+    def classname = "scala.threads.CTries"
+    def arguments = defaults
+  }
+  
+  val map: Map[String, TestInfo] = mutable.Map() ++ (List(
+    ParallelTests,
+    CTries
+  ) map { t => (t.classname, t) })
   
   def apply(nm: String) = map(nm)
-  
 }
