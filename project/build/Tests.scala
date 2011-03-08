@@ -55,9 +55,15 @@ object Tests {
     def arguments = defaults
   }
   
+  object Sched extends TestInfo {
+    def classname = "scala.threads.Sched"
+    def arguments = defaults
+  }
+  
   val map: Map[String, TestInfo] = mutable.Map() ++ (List(
     ParallelTests,
-    CTries
+    CTries,
+    Sched
   ) map { t => (t.classname, t) })
   
   def apply(nm: String) = map(nm)
