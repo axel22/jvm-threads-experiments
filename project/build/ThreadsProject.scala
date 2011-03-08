@@ -13,7 +13,7 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
   val projDefinitionPath = "project/"
   val projDefinitionBuildPath = projDefinitionPath + "build/"
   val projDefinitionFiles = projDefinitionBuildPath
-  val scalaVersion = "2.8.0"
+  val scalaVersion = "2.8.1"
   val projVersion = "1.0"
   val bootDir = "project" / "boot"
   val bootScalaDir = bootDir / ("scala-" + scalaVersion)
@@ -36,7 +36,7 @@ class ThreadsProject(info: ProjectInfo) extends DefaultProject(info) {
     def java = "java"
   }
   
-  var testName = "scala.threads.ParallelTests"
+  var testName = "scala.threads.Sched"//ParallelTests"
   var email = "aleksandar.prokopec@gmail.com"
   val tmpfile = "tmp_sbt_2w3e4567cs"
   

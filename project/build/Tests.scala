@@ -57,7 +57,16 @@ object Tests {
   
   object Sched extends TestInfo {
     def classname = "scala.threads.Sched"
-    def arguments = defaults
+    def arguments = Seq(
+      Seq(
+        "loop",
+        "takepiece"
+      ) map { "testname=" + _ },
+      Seq("25000", "50000", "100000", "200000") map {"totalwork=" + _},
+      Seq("threadnum=1"),
+      Seq("numtests=100"),
+      Seq("logging=true")
+    ) ++ defaults
   }
   
   val map: Map[String, TestInfo] = mutable.Map() ++ (List(

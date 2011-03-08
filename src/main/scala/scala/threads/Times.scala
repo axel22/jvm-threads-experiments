@@ -41,7 +41,7 @@ class Times(s: Settings) {
   
   private def ftind(thrind: Int) = if (thrind < 10) " " + thrind else thrind.toString
   
-  private def formatTimes(fulltimes: Seq[Long], d: Double, numlast: Int) = {
+  private def formatTimes(fulltimes: Seq[Long], d: Double, numlast: Int) = if (fulltimes.nonEmpty) {
     val times = fulltimes.takeRight(numlast)
     val avg = fulltimes.foldLeft(0.0)(_ + _) / fulltimes.length
     val min = fulltimes.min

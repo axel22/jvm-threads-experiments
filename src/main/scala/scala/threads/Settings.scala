@@ -55,7 +55,7 @@ trait DefaultSettings extends Settings {
   
   def div = 1.0e6
   def wdt = 12
-  def lastshown = 5
+  def lastshown = 7
   
   def logging = false
   def logfile = "testlog.txt"
