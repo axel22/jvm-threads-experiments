@@ -51,7 +51,7 @@ object Sched extends Test {
     if (s.logging) arr = new Array[Boolean](s.totalwork)
     s.testname match {
       case "loop" => result = loop(0, s.totalwork)
-      case "takepiece" => result = takepiece(s.totalwork)
+      case "takepiece" => result = takepiece(s.totalwork, s.threadnum)
     }
     if (s.logging) assert(arr.reduceLeft(_ && _))
   }
@@ -69,15 +69,27 @@ object Sched extends Test {
     var sum = 0
     while (i < until) {
       sum += f(i)
-      arr(i) = true
+      // arr(i) = true
       i += 1
     }
     sum
   }
   
   val queue = new java.util.concurrent.atomic.AtomicReference[List[(Int, Int)]](Nil)
+  val totaldone = new java.util.concurrent.atomic.AtomicInteger(0)
+  @volatile var totaltodo = 0
+  def workdone = totaldone.get == totaltodo
   
-  private def takefront(t: Int): (Int, Int) = {
+  private def addDone(n: Int) = {
+    var init = 0
+    var upd = 0
+    do {
+      init = totaldone.get
+      upd = init + n
+    } while (!totaldone.compareAndSet(init, upd))
+  }
+  
+  @annotation.tailrec private def takefront(t: Int): (Int, Int) = {
     val lst = queue.get
     if (lst.isEmpty) null
     else {
@@ -90,28 +102,66 @@ object Sched extends Test {
         nlst = (hd._1 + div, hd._2) :: nlst;
         hd = nhd
       }
-      queue.compareAndSet(lst, nlst)
-      hd
+      var succeeded = queue.compareAndSet(lst, nlst)
+      if (succeeded) queue.synchronized {
+        queue.notifyAll()
+      }
+      if (succeeded) hd
+      else takefront(t)
     }
   }
   
-  def takepiece(until: Int) = {
-    // init
-    val threshold = until / 16
-    queue.set(List((0, until)))
-    
-    // work until you've got all the pieces done
-    var cond = true
-    var sum = 0
-    while (cond) {
-      // take a piece and add the rest back
-      val hd = takefront(threshold)
-      sum += loop(hd._1, hd._2)
-      
-      if (queue.get.isEmpty) cond = false
+  val gran = 8
+  var workers: Seq[Worker] = null
+  
+  def takepiece(until: Int, numt: Int) = {
+    if (workers == null) {
+      workers = for (i <- 1 until numt) yield new Worker
+      for (w <- workers) w.start
     }
     
+    // init
+    totaltodo = until
+    totaldone.set(0)
+    queue.set(List((0, until)))
+    queue.synchronized {
+      queue.notifyAll()
+    }
+    // work until you've got all the pieces done
+    var sum = workUntilDone()
+    
     sum
+  }
+  
+  private def workUntilDone() = {
+    val threshold = totaltodo / gran
+    var sum = 0
+    while (!workdone) {
+      // take a piece and add the rest back
+      val hd = takefront(threshold)
+      if (hd != null) {
+        sum += loop(hd._1, hd._2)
+        addDone(hd._2 - hd._1)
+      }
+      
+      queue.synchronized {
+        while (queue.get.isEmpty && !workdone) queue.wait()
+      }
+    }
+    sum
+  }
+  
+  class Worker extends Thread {
+    this.setDaemon(true)
+    override def run() {
+      while (true) {
+        queue.synchronized {
+          if (workdone) queue.notifyAll()
+          while (workdone) queue.wait()
+        }
+        workUntilDone()
+      }
+    }
   }
   
 }

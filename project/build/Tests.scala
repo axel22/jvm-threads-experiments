@@ -59,13 +59,13 @@ object Tests {
     def classname = "scala.threads.Sched"
     def arguments = Seq(
       Seq(
-        "loop",
-        "takepiece"
+        // "loop",
+        "takepiece",
       ) map { "testname=" + _ },
-      Seq("25000", "50000", "100000", "200000") map {"totalwork=" + _},
-      Seq("threadnum=1"),
-      Seq("numtests=100"),
-      Seq("logging=true")
+      Seq("25000", "50000", "100000", "200000", "400000") map {"totalwork=" + _},
+      Seq(1, 2, 4) map { "threadnum=" + _ },
+      Seq("numtests=400"),
+      Seq("logging=false")
     ) ++ defaults
   }
   
