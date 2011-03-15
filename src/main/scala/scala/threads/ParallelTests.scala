@@ -4,7 +4,7 @@ package scala.threads
 
 
 import collection._
-
+import java.util.concurrent.atomic._
 
 
 
@@ -66,6 +66,13 @@ object ParallelTests extends Test {
     hmap.clear
   }
   
+  class FieldHolder {
+    private val updater = AtomicIntegerFieldUpdater.newUpdater(classOf[FieldHolder], "num")
+    @volatile private var num: Int = 0
+    def cas(old: Int, n: Int) = updater.compareAndSet(this, old, n)
+    def get = num
+  }
+  
   class WorkerThread(times: Times, settings: Settings) extends Thread {
     import times._
     import settings._
@@ -94,6 +101,7 @@ object ParallelTests extends Test {
       case "loop_atomic_tlocal_cas" => loop_atomic_tlocal_cas
       case "loop_atomic_weakcas" => loop_atomic_weakcas
       case "loop_atomic_tlocal_weakcas" => loop_atomic_tlocal_weakcas
+      case "loop_fieldupdater_cas" => loop_fieldupdater_cas
       case "conchashmap_insert" => conchashmap_insert
       case "concskiplist_insert" => concskiplist_insert
       case "linear_insert" => linear_insert
@@ -185,6 +193,17 @@ object ParallelTests extends Test {
         acnt.compareAndSet(i - 1, i)
       }
       acnt.get + i
+    }
+    
+    def loop_fieldupdater_cas = {
+      var i = 0
+      val until = totalwork / threadnum
+      val fh = new FieldHolder
+      while (i < until) {
+        i += 1
+        fh.cas(i - 1, i)
+      }
+      fh.get + i
     }
     
     def loop_atomic_tlocal_cas = {

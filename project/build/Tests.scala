@@ -27,13 +27,14 @@ object Tests {
     def arguments = Seq(
       Seq(
         // "loop_local_write",
-        "loop_heap_read", 
+        // "loop_heap_read", 
         // "loop_heap_write",
         // "loop_vread", 
         // "loop_vwrite",
         // "loop_atomic_read", 
         // "loop_atomic_write",
-        // "loop_atomic_cas",
+        "loop_atomic_cas",
+        "loop_fieldupdater_cas",
         // "loop_atomic_tlocal_cas",
         // "loop_atomic_weakcas",
         // "loop_atomic_tlocal_weakcas",
@@ -41,10 +42,10 @@ object Tests {
         // "concskiplist_insert",
         // "linear_insert",
         // "currthread",
-        "threadlocal"
+        // "threadlocal"
       ) map { "testname=" + _ },
       Seq(1, 2, 4, 8) map { "threadnum=" + _ },
-      Seq("totalwork=20000000"),
+      Seq("totalwork=2000000"),
       Seq("numtests=200"),
       Seq("logging=true")
     ) ++ defaults
