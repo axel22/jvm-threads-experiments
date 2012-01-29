@@ -72,6 +72,12 @@ object ParallelTests extends Test {
     def cas(old: Int, n: Int) = updater.compareAndSet(this, old, n)
     def get = num
   }
+
+  object WorkerThread {
+    val common_tlocal_cnt = new java.lang.ThreadLocal[java.util.concurrent.atomic.AtomicInteger] {
+      override def initialValue = new AtomicInteger(0)
+    }
+  }
   
   class WorkerThread(times: Times, settings: Settings) extends Thread {
     import times._
@@ -107,6 +113,7 @@ object ParallelTests extends Test {
       case "linear_insert" => linear_insert
       case "currthread" => currthread
       case "threadlocal" => threadlocal
+      case "common_threadlocal" => common_threadlocal
       case _ => error("unknown test '" + name + "'")
     }
     
@@ -284,6 +291,18 @@ object ParallelTests extends Test {
       val until = totalwork / threadnum
       while (i < until) {
         if (atomic_tlocal_cnt.get eq null) i = until + i + 1
+        i += 1
+      }
+      if (i > until) println("thread local value was null " + i)
+    }
+
+    def common_threadlocal() {
+      import WorkerThread._
+
+      var i = 0
+      val until = totalwork / threadnum
+      while (i < until) {
+        if (common_tlocal_cnt.get eq null) i = until + i + 1
         i += 1
       }
       if (i > until) println("thread local value was null " + i)
