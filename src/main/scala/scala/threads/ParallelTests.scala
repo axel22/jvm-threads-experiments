@@ -113,7 +113,7 @@ object ParallelTests extends Test {
       case "linear_insert" => linear_insert
       case "currthread" => currthread
       case "threadlocal" => threadlocal
-      case "common_threadlocal" => common_threadlocal
+      case "common_threadlocal" => common_threadlocal()
       case _ => error("unknown test '" + name + "'")
     }
     
