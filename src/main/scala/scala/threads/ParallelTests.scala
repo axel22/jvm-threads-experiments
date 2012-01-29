@@ -5,6 +5,7 @@ package scala.threads
 
 import collection._
 import java.util.concurrent.atomic._
+import java.util.concurrent.CyclicBarrier
 
 
 
@@ -41,8 +42,13 @@ object ParallelTests extends Test {
   def test(times: Times, settings: Settings) {
     import times._
     import settings._
+
+    val barrier = new CyclicBarrier(threadnum)
+
     val threads = for (i <- 0 until threadnum) yield new WorkerThread(times, settings) {
       override def run {
+        barrier.await()
+
         startTimes(i) += timeStamp
         threadTimes(i) += measure {
           val result = call(testname)
